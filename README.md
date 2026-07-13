@@ -15,7 +15,7 @@
 ### 1. 克隆项目 & 安装依赖
 
 ```bash
-cd 宇宙无敌表达训练系统-本地桌面版
+cd expression-trainer
 npm install
 ```
 
@@ -42,8 +42,13 @@ models/
     ├── decoder.int8.onnx
     └── tokens.txt
 ```
+### 3. 启动应用
 
-### 3. 配置 AI 后端
+```bash
+npm start
+```
+
+### 4. 配置 AI 后端
 
 启动后点击右上角 ⚙️ 进入设置页面。
 
@@ -57,12 +62,6 @@ models/
 | Ollama | 免费 | 取决于硬件 | [ollama.com](https://ollama.com) 本地运行 |
 
 **推荐 Groq**：免费额度足够日常使用，响应速度极快（<500ms）。
-
-### 4. 启动应用
-
-```bash
-npm start
-```
 
 ## 使用说明
 
