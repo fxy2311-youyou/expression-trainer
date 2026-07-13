@@ -56,12 +56,11 @@ npm start
 
 | 后端 | 费用 | 速度 | 获取方式 |
 |------|------|------|----------|
-| **Groq** | 免费 | 极快 | [console.groq.com](https://console.groq.com) |
 | DeepSeek | 极低 | 快 | [platform.deepseek.com](https://platform.deepseek.com) |
 | OpenAI | 中等 | 快 | [platform.openai.com](https://platform.openai.com) |
 | Ollama | 免费 | 取决于硬件 | [ollama.com](https://ollama.com) 本地运行 |
 
-**推荐 Groq**：免费额度足够日常使用，响应速度极快（<500ms）。
+**推荐 deepseek**：生成报告质量高，且成本极低。
 
 ## 使用说明
 
