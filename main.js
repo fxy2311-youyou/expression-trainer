@@ -194,11 +194,11 @@ ipcMain.handle('init-asr', async () => {
   }
 });
 
-// 接收渲染进程发来的音频数据
-ipcMain.handle('feed-audio', (event, samplesArray) => {
+// 接收渲染进程发来的音频数据（sampleRate 为实际采集率，由 sherpa 内部重采样）
+ipcMain.handle('feed-audio', (event, samplesArray, sampleRate) => {
   if (!asrReady) return null;
   const samples = new Float32Array(samplesArray);
-  const result = feedAudio(samples);
+  const result = feedAudio(samples, sampleRate);
   return result; // { text, isFinal } or null
 });
 
