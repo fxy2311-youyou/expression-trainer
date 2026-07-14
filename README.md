@@ -4,7 +4,7 @@
 
 ## 功能
 
-- 🎤 **实时语音识别**：基于 Sherpa-ONNX，完全离线，中文优化
+- 🎤 **实时语音识别**：基于 Sherpa-ONNX Zipformer，完全离线，中文优化
 - 📝 **全屏字幕显示**：黑底大字，实时显示你说的每一句话
 - 🔍 **词库分析**：自动检测填充词、犹豫词、笼统词，给出精准替代
 - 🤖 **AI反馈**：支持 Groq/OpenAI/DeepSeek/Ollama 多后端
@@ -21,25 +21,24 @@ npm install
 
 ### 2. 下载语音识别模型
 
-需要下载 Sherpa-ONNX 的 streaming paraformer 中英双语模型：
+需要下载 Sherpa-ONNX 的 streaming Zipformer 中文模型：
 
 ```bash
 cd models
 
-# 方法一：使用 wget
-wget https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2
-tar xvf sherpa-onnx-streaming-paraformer-bilingual-zh-en.tar.bz2
-
-# 方法二：使用 huggingface
-# https://huggingface.co/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en
+wget https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30.tar.bz2
+tar xvf sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30.tar.bz2
+rm sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30.tar.bz2
 ```
 
 下载后 `models/` 目录应包含：
+
 ```
 models/
-└── sherpa-onnx-streaming-paraformer-bilingual-zh-en/
+└── sherpa-onnx-streaming-zipformer-zh-int8-2025-06-30/
     ├── encoder.int8.onnx
-    ├── decoder.int8.onnx
+    ├── decoder.onnx
+    ├── joiner.int8.onnx
     └── tokens.txt
 ```
 ### 3. 启动应用

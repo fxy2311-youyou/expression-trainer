@@ -4,14 +4,20 @@
   "description": "宇宙无敌表达训练系统 - 本地桌面版",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev"
+    "start": "node scripts/run-electron.js",
+    "dev": "node scripts/run-electron.js --dev"
   },
-  "keywords": ["expression", "training", "speech", "asr", "chinese"],
+  "keywords": [
+    "expression",
+    "training",
+    "speech",
+    "asr",
+    "chinese"
+  ],
   "author": "sisi",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.4.11"
   },
   "dependencies": {
     "sherpa-onnx-node": "^1.10.0"

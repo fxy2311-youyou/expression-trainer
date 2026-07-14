@@ -81,14 +81,23 @@ class ExpressionTrainer {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      });
+      // Request 16kHz; macOS may still use device rate — pass actual rate to ASR
       this.audioContext = new AudioContext({ sampleRate: 16000 });
+      const captureRate = this.audioContext.sampleRate;
+      console.log(`[Audio] capture sampleRate=${captureRate}`);
       const source = this.audioContext.createMediaStreamSource(stream);
       this.audioProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
       this.audioProcessor.onaudioprocess = async (e) => {
         if (!this.isRecording || this.isPaused) return;
         const samples = e.inputBuffer.getChannelData(0);
-        const result = await window.api.feedAudio(samples);
+        const result = await window.api.feedAudio(samples, captureRate);
         if (result) this.handleASRResult(result);
       };
       source.connect(this.audioProcessor);
