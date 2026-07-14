@@ -344,123 +344,126 @@ for (const [cat, words] of Object.entries(TIERED_LEXICON)) {
 const input = document.getElementById('input');
 const output = document.getElementById('output');
 const cardsDiv = document.getElementById('cards');
+const HIGHLIGHT_PATTERNS = [
+  ...Object.keys(tier1Map).map(word => ({ word, className: 'highlight', type: 'vague', priority: 0 })),
+  ...FILLER_WORDS.map(word => ({ word, className: 'highlight-filler', type: 'filler', priority: 1 })),
+  ...HEDGE_WORDS.map(word => ({ word, className: 'highlight-hedge', type: 'hedge', priority: 2 }))
+].sort((a, b) => b.word.length - a.word.length || a.priority - b.priority);
+
+function createTextElement(tagName, className, text) {
+  const element = document.createElement(tagName);
+  if (className) element.className = className;
+  element.textContent = text;
+  return element;
+}
+
+function appendTextWithBreaks(container, text) {
+  const parts = String(text).split('\n');
+  parts.forEach((part, index) => {
+    if (part) container.appendChild(document.createTextNode(part));
+    if (index < parts.length - 1) container.appendChild(document.createElement('br'));
+  });
+}
 
 input.addEventListener('input', () => {
   const text = input.value;
   if (!text.trim()) {
-    output.innerHTML = '<span style="color:#ccc">输入内容后这里会实时显示高亮...</span>';
+    const placeholder = createTextElement('span', '', '输入内容后这里会实时显示高亮...');
+    placeholder.style.color = '#ccc';
+    output.replaceChildren(placeholder);
     document.getElementById('stat-vague').textContent = '0';
     document.getElementById('stat-filler').textContent = '0';
     document.getElementById('stat-hedge').textContent = '0';
     return;
   }
-  
-  let html = text;
-  let vagueCount = 0, fillerCount = 0, hedgeCount = 0;
-  
-  // 按长度排序（长词优先匹配，避免"我觉得"被"觉得"先匹配）
-  const allTier1 = Object.keys(tier1Map).sort((a, b) => b.length - a.length);
-  const allFillers = [...FILLER_WORDS].sort((a, b) => b.length - a.length);
-  const allHedges = [...HEDGE_WORDS].sort((a, b) => b.length - a.length);
-  
-  // 标记替换（用占位符避免嵌套）
-  const markers = [];
-  let markerIdx = 0;
-  
-  // 先标记第一层词
-  for (const word of allTier1) {
-    const regex = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-    html = html.replace(regex, () => {
-      vagueCount++;
-      const id = `__M${markerIdx++}__`;
-      markers.push({ id, html: `<span class="highlight" data-word="${word}">${word}</span>` });
-      return id;
-    });
+
+  const fragment = document.createDocumentFragment();
+  const counts = { vague: 0, filler: 0, hedge: 0 };
+  let cursor = 0;
+  let plainStart = 0;
+
+  while (cursor < text.length) {
+    const matched = HIGHLIGHT_PATTERNS.find(item => text.startsWith(item.word, cursor));
+    if (!matched) {
+      cursor += 1;
+      continue;
+    }
+
+    if (cursor > plainStart) {
+      appendTextWithBreaks(fragment, text.slice(plainStart, cursor));
+    }
+
+    const span = createTextElement('span', matched.className, matched.word);
+    if (matched.type === 'vague') {
+      span.dataset.word = matched.word;
+      span.addEventListener('click', () => showCard(matched.word));
+    }
+    fragment.appendChild(span);
+    counts[matched.type] += 1;
+
+    cursor += matched.word.length;
+    plainStart = cursor;
   }
-  
-  // 标记填充词
-  for (const word of allFillers) {
-    const regex = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-    html = html.replace(regex, () => {
-      fillerCount++;
-      const id = `__M${markerIdx++}__`;
-      markers.push({ id, html: `<span class="highlight-filler">${word}</span>` });
-      return id;
-    });
+
+  if (plainStart < text.length) {
+    appendTextWithBreaks(fragment, text.slice(plainStart));
   }
-  
-  // 标记犹豫词
-  for (const word of allHedges) {
-    const regex = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-    html = html.replace(regex, () => {
-      hedgeCount++;
-      const id = `__M${markerIdx++}__`;
-      markers.push({ id, html: `<span class="highlight-hedge">${word}</span>` });
-      return id;
-    });
-  }
-  
-  // 替换占位符
-  for (const m of markers) {
-    html = html.replace(m.id, m.html);
-  }
-  
-  // 换行处理
-  html = html.replace(/\n/g, '<br>');
-  
-  output.innerHTML = html;
-  document.getElementById('stat-vague').textContent = vagueCount;
-  document.getElementById('stat-filler').textContent = fillerCount;
-  document.getElementById('stat-hedge').textContent = hedgeCount;
-  
-  // 绑定点击事件
-  output.querySelectorAll('.highlight').forEach(el => {
-    el.addEventListener('click', () => showCard(el.dataset.word));
-  });
+
+  output.replaceChildren(fragment);
+  document.getElementById('stat-vague').textContent = counts.vague;
+  document.getElementById('stat-filler').textContent = counts.filler;
+  document.getElementById('stat-hedge').textContent = counts.hedge;
 });
 
 // ===== 替换卡片 =====
 function showCard(word) {
   const info = tier1Map[word];
   if (!info) return;
-  
-  cardsDiv.innerHTML = `
-    <div class="replacement-card">
-      <div class="original">你说了：</div>
-      <div class="word">「${word}」</div>
-      <div class="category">${info.category}</div>
-      <div class="alternatives">
-        ${info.alternatives.map(alt => `<span class="alt-chip">${alt}</span>`).join('')}
-      </div>
-    </div>
-  `;
+
+  const card = document.createElement('div');
+  card.className = 'replacement-card';
+  card.appendChild(createTextElement('div', 'original', '你说了：'));
+  card.appendChild(createTextElement('div', 'word', `「${word}」`));
+  card.appendChild(createTextElement('div', 'category', info.category));
+
+  const alternatives = document.createElement('div');
+  alternatives.className = 'alternatives';
+  info.alternatives.forEach(alt => {
+    alternatives.appendChild(createTextElement('span', 'alt-chip', alt));
+  });
+  card.appendChild(alternatives);
+  cardsDiv.replaceChildren(card);
 }
 
 // ===== 词库浏览 =====
 function renderLexiconBrowser() {
   const container = document.getElementById('lexicon-list');
-  let html = '';
-  
+  const fragment = document.createDocumentFragment();
+
   for (const [cat, words] of Object.entries(TIERED_LEXICON)) {
     if (cat === '_meta') continue;
     const catName = CATEGORY_NAMES[cat] || cat;
-    
-    html += `<div class="category-section">
-      <h3>${catName}（${Object.keys(words).length}词）</h3>
-      <div class="word-grid">`;
-    
+
+    const section = document.createElement('div');
+    section.className = 'category-section';
+    section.appendChild(createTextElement('h3', '', `${catName}（${Object.keys(words).length}词）`));
+
+    const grid = document.createElement('div');
+    grid.className = 'word-grid';
     for (const [word, alts] of Object.entries(words)) {
-      html += `<div class="word-item">
-        <span class="w-word">${word}</span>
-        <span class="w-arrow">→</span>
-        <span class="w-alts">${alts.slice(0, 3).join(' / ')}</span>
-      </div>`;
+      const item = document.createElement('div');
+      item.className = 'word-item';
+      item.appendChild(createTextElement('span', 'w-word', word));
+      item.appendChild(createTextElement('span', 'w-arrow', '→'));
+      item.appendChild(createTextElement('span', 'w-alts', alts.slice(0, 3).join(' / ')));
+      grid.appendChild(item);
     }
-    
-    html += '</div></div>';
+
+    section.appendChild(grid);
+    fragment.appendChild(section);
   }
-  
-  container.innerHTML = html;
+
+  container.replaceChildren(fragment);
 }
 
 renderLexiconBrowser();

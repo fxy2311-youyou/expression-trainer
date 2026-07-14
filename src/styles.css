@@ -282,6 +282,7 @@ button, input, select, .subtitle-scroll, .feedback-content, .modal-body {
   line-height: 1.9;
   color: #ddd;
 }
+.modal-body h1 { color: #E5007E; margin-top: 20px; margin-bottom: 10px; font-size: 18px; }
 .modal-body h2 { color: #E5007E; margin-top: 20px; margin-bottom: 8px; font-size: 16px; }
 .modal-body h3 { color: #fff; margin-top: 14px; font-size: 14px; }
 .modal-body blockquote { border-left: 3px solid #E5007E; padding-left: 12px; color: #999; margin: 8px 0; }
@@ -289,6 +290,9 @@ button, input, select, .subtitle-scroll, .feedback-content, .modal-body {
 .modal-body table { width: 100%; border-collapse: collapse; margin: 8px 0; }
 .modal-body th, .modal-body td { border: 1px solid #333; padding: 6px 10px; text-align: left; font-size: 13px; }
 .modal-body th { background: #1a1a1a; color: #E5007E; }
+.report-content p { margin: 4px 0; }
+.report-content ul { margin: 6px 0; padding-left: 22px; }
+.report-content hr { border: 0; border-top: 1px solid #333; margin: 16px 0; }
 
 /* 滚动条 */
 ::-webkit-scrollbar { width: 5px; }
