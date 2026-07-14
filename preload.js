@@ -14,13 +14,18 @@ contextBridge.exposeInMainWorld('api', {
 
   // 语音识别 - 使用 Web Audio 方案
   initASR: () => ipcRenderer.invoke('init-asr'),
-  feedAudio: (samples) => ipcRenderer.invoke('feed-audio', Array.from(samples)),
+  // 音频块是高频数据，直接发送 Float32Array，避免 Array.from 的额外拷贝。
+  feedAudio: (samples) => ipcRenderer.send('feed-audio', samples),
   stopASR: () => ipcRenderer.invoke('stop-asr'),
   onASRResult: (callback) => {
     ipcRenderer.on('asr-result', (event, data) => callback(data));
   },
+  onASRError: (callback) => {
+    ipcRenderer.on('asr-error', (event, data) => callback(data));
+  },
   removeASRListener: () => {
     ipcRenderer.removeAllListeners('asr-result');
+    ipcRenderer.removeAllListeners('asr-error');
   },
 
   // 词库分析

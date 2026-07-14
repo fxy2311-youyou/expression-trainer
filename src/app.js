@@ -16,6 +16,7 @@ class ExpressionTrainer {
 
     this.initElements();
     this.bindEvents();
+    this.bindASREvents();
   }
 
   initElements() {
@@ -71,6 +72,19 @@ class ExpressionTrainer {
     this.btnClear.addEventListener('click', () => this.clearAll());
   }
 
+  bindASREvents() {
+    // ASR 结果由主进程异步推送，录音回调只负责发送音频，避免阻塞音频线程。
+    window.api.onASRResult((result) => {
+      if (!this.isRecording || this.isPaused || !result) return;
+      this.handleASRResult(result);
+    });
+
+    window.api.onASRError((error) => {
+      const message = error && error.message ? error.message : '音频识别处理失败';
+      this.showError(`语音识别错误: ${message}`);
+    });
+  }
+
   // ===== 录制控制 =====
 
   async startRecording() {
@@ -85,16 +99,18 @@ class ExpressionTrainer {
       this.audioContext = new AudioContext({ sampleRate: 16000 });
       const source = this.audioContext.createMediaStreamSource(stream);
       this.audioProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
-      this.audioProcessor.onaudioprocess = async (e) => {
+      this.audioProcessor.onaudioprocess = (e) => {
         if (!this.isRecording || this.isPaused) return;
         const samples = e.inputBuffer.getChannelData(0);
-        const result = await window.api.feedAudio(samples);
-        if (result) this.handleASRResult(result);
+        // 不等待主进程返回识别结果，降低音频回调中的延迟和卡顿风险。
+        window.api.feedAudio(samples);
       };
       source.connect(this.audioProcessor);
       this.audioProcessor.connect(this.audioContext.destination);
       this.mediaStream = stream;
     } catch (err) {
+      // ASR 已初始化但麦克风失败时要停止识别，避免后续录音状态不一致。
+      await window.api.stopASR();
       this.showError(`麦克风访问失败: ${err.message}`);
       return;
     }
