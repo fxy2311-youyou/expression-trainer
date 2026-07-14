@@ -31,6 +31,12 @@
         <span class="stat-label">表达密度</span>
         <span id="stat-density" class="stat-value stat-green">--</span>
       </div>
+      <div class="memory-card">
+        <div class="memory-title">🧠 长期训练记忆</div>
+        <div class="memory-count">已记录 <span id="memory-session-count">0</span> 次训练</div>
+        <div class="memory-label">当前重点</div>
+        <div id="memory-current-focus" class="memory-focus">完成第一次训练，建立你的表达基线</div>
+      </div>
     </aside>
 
     <!-- 中间：主内容区 -->
@@ -91,7 +97,8 @@
 
     <!-- 右栏：实时反馈 -->
     <aside class="panel-right">
-      <div class="panel-title">💡 实时反馈</div>
+      <div class="panel-title">💡 反馈时间线</div>
+      <div id="feedback-hint" class="feedback-hint">说话时只记录，结束后点击反馈定位原句</div>
       <div id="feedback-content" class="feedback-content">
         <!-- 实时反馈内容 -->
       </div>

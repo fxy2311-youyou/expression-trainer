@@ -3,7 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const { initASR, feedAudio, stopRecognition } = require('./lib/asr');
 const { loadLexicon, analyzeText } = require('./lib/lexicon');
-const { sendFeedback, sendReport } = require('./lib/ai-feedback');
+const { sendFeedback, sendReport, extractMemoryInsight } = require('./lib/ai-feedback');
+const { getMemorySummary, saveSession } = require('./lib/training-memory');
 
 let mainWindow;
 let settingsWindow;
@@ -30,6 +31,10 @@ function saveCustomPrompt(data) {
 // 设置文件路径
 function getSettingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
+}
+
+function getTrainingMemoryPath() {
+  return path.join(app.getPath('userData'), 'training-memory.json');
 }
 
 function loadSettings() {
@@ -213,6 +218,10 @@ ipcMain.handle('analyze-text', (event, text) => {
   return analyzeText(text);
 });
 
+ipcMain.handle('get-training-memory', () => {
+  return getMemorySummary(getTrainingMemoryPath());
+});
+
 // 文件保存
 ipcMain.handle('save-file', async (event, content, filename) => {
   const { dialog } = require('electron');
@@ -230,23 +239,47 @@ ipcMain.handle('save-file', async (event, content, filename) => {
 });
 
 // AI反馈（传入customPrompt）
-ipcMain.handle('get-realtime-feedback', async (event, text) => {
+ipcMain.handle('get-realtime-feedback', async (event, payload) => {
   const settings = loadSettings();
   const customPrompt = loadCustomPrompt();
+  const memory = getMemorySummary(getTrainingMemoryPath());
+  const data = typeof payload === 'string' ? { text: payload } : payload;
   try {
-    const feedback = await sendFeedback(text, settings, customPrompt);
+    const feedback = await sendFeedback(data.text, settings, customPrompt, {
+      elapsedSec: data.elapsedSec,
+      topic: data.topic,
+      previousPoints: data.previousPoints,
+      currentSentence: data.currentSentence,
+      currentFocus: memory.profile.currentFocus,
+      longTermProfile: memory.profile
+    });
     return { success: true, feedback };
   } catch (error) {
     return { success: false, error: error.message };
   }
 });
 
-ipcMain.handle('get-final-report', async (event, { fullText, stats }) => {
+ipcMain.handle('get-final-report', async (event, { fullText, stats, session }) => {
   const settings = loadSettings();
   const customPrompt = loadCustomPrompt();
+  const memoryPath = getTrainingMemoryPath();
+  const memory = getMemorySummary(memoryPath);
   try {
-    const report = await sendReport(fullText, stats, settings, customPrompt);
-    return { success: true, report };
+    const report = await sendReport(fullText, stats, settings, customPrompt, memory.profile);
+    let structuredMemory = null;
+    try {
+      structuredMemory = await extractMemoryInsight(fullText, report, stats, settings);
+    } catch (memoryError) {
+      console.warn('[记忆] 报告结构化提炼失败，不影响报告使用:', memoryError.message);
+    }
+    const updatedMemory = saveSession(memoryPath, {
+      ...session,
+      textLength: fullText.length,
+      stats,
+      reportSummary: report.slice(0, 500),
+      structuredMemory
+    });
+    return { success: true, report, profile: updatedMemory.profile, memoryExtracted: Boolean(structuredMemory) };
   } catch (error) {
     return { success: false, error: error.message };
   }

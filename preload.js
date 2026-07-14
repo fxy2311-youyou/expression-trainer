@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // 词库分析
   analyzeText: (text) => ipcRenderer.invoke('analyze-text', text),
+  getTrainingMemory: () => ipcRenderer.invoke('get-training-memory'),
 
   // AI反馈
   getRealtimeFeedback: (text) => ipcRenderer.invoke('get-realtime-feedback', text),
