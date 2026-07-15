@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('api', {
   // AI反馈
   getRealtimeFeedback: (text) => ipcRenderer.invoke('get-realtime-feedback', text),
   getFinalReport: (data) => ipcRenderer.invoke('get-final-report', data),
+  testLLMConnection: (settings) => ipcRenderer.invoke('test-llm-connection', settings),
 
   // 文件保存
   saveFile: (content, filename) => ipcRenderer.invoke('save-file', content, filename),
