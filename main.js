@@ -190,16 +190,30 @@ ipcMain.handle('init-asr', async () => {
     asrReady = true;
     return { success: true };
   } catch (error) {
+    // 初始化失败时显式复位，避免沿用上一次成功启动留下的 ready 状态。
+    asrReady = false;
     return { success: false, error: error.message };
   }
 });
 
 // 接收渲染进程发来的音频数据
-ipcMain.handle('feed-audio', (event, samplesArray) => {
-  if (!asrReady) return null;
-  const samples = new Float32Array(samplesArray);
-  const result = feedAudio(samples);
-  return result; // { text, isFinal } or null
+ipcMain.on('feed-audio', (event, samplesData) => {
+  if (!asrReady) return;
+
+  try {
+    // feed-audio 是热路径：用 send/on 异步处理，结果通过 asr-result 推回渲染进程。
+    let samples = samplesData;
+    if (!(samplesData instanceof Float32Array)) {
+      samples = new Float32Array(samplesData);
+    }
+
+    const result = feedAudio(samples);
+    if (result) {
+      event.sender.send('asr-result', result);
+    }
+  } catch (error) {
+    event.sender.send('asr-error', { message: error.message });
+  }
 });
 
 ipcMain.handle('stop-asr', () => {
