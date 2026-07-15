@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { DEFAULT_DEEPSEEK_MODEL, normalizeDeepSeekSettings } = require('./lib/deepseek-config');
 const { initASR, feedAudio, stopRecognition } = require('./lib/asr');
 const { loadLexicon, analyzeText } = require('./lib/lexicon');
 const { sendFeedback, sendReport } = require('./lib/ai-feedback');
@@ -35,12 +36,13 @@ function getSettingsPath() {
 function loadSettings() {
   const settingsPath = getSettingsPath();
   if (fs.existsSync(settingsPath)) {
-    return JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    return normalizeDeepSeekSettings(settings);
   }
   return {
     provider: 'deepseek',
     apiKey: '',
-    model: 'deepseek-chat',
+    model: DEFAULT_DEEPSEEK_MODEL,
     ollamaUrl: 'http://localhost:11434',
     customEndpoint: '',
     customModel: ''

@@ -14,8 +14,8 @@ const PROVIDER_CONFIG = {
     needsKey: true,
     keyHint: '在 platform.deepseek.com 获取',
     models: [
-      { value: 'deepseek-chat', label: 'DeepSeek Chat（推荐）' },
-      { value: 'deepseek-coder', label: 'DeepSeek Coder' }
+      { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash（推荐）' },
+      { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro' }
     ]
   },
   ollama: {
@@ -73,6 +73,16 @@ class SettingsPage {
 
     // 设置模型（在onProviderChange填充选项后）
     if (settings.model) {
+      const modelExists = Array.from(this.modelSelect.options)
+        .some(option => option.value === settings.model);
+
+      if (!modelExists && this.providerSelect.value === 'deepseek') {
+        const opt = document.createElement('option');
+        opt.value = settings.model;
+        opt.textContent = `${settings.model}（现有自定义值）`;
+        this.modelSelect.appendChild(opt);
+      }
+
       this.modelSelect.value = settings.model;
     }
   }
