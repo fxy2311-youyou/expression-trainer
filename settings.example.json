@@ -1,7 +1,7 @@
 {
   "provider": "deepseek",
   "apiKey": "your-api-key-here",
-  "model": "deepseek-chat",
+  "model": "deepseek-v4-flash",
   "ollamaUrl": "http://localhost:11434",
   "customEndpoint": "",
   "customModel": ""
