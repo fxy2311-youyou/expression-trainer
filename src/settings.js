@@ -41,7 +41,7 @@ class SettingsPage {
     this.modelSelect = document.getElementById('model');
     this.modelHint = document.getElementById('model-hint');
     this.ollamaUrlInput = document.getElementById('ollama-url');
-    this.customEndpointInput = document.getElementById('custom-endpoint');
+    this.customBaseUrlInput = document.getElementById('custom-base-url');
     this.customModelInput = document.getElementById('custom-model');
     this.btnSave = document.getElementById('btn-save');
     this.saveSuccess = document.getElementById('save-success');
@@ -61,19 +61,26 @@ class SettingsPage {
   }
 
   async loadSettings() {
-    const settings = await window.api.getSettings();
+    this.settings = await window.api.getSettings();
 
-    this.providerSelect.value = settings.provider || 'deepseek';
-    this.apikeyInput.value = settings.apiKey || '';
-    this.ollamaUrlInput.value = settings.ollamaUrl || 'http://localhost:11434';
-    this.customEndpointInput.value = settings.customEndpoint || '';
-    this.customModelInput.value = settings.customModel || '';
+    this.providerSelect.value = this.settings.provider || 'deepseek';
 
+    // 先填充模型列表再加载字段值
     this.onProviderChange();
+  }
 
-    // 设置模型（在onProviderChange填充选项后）
-    if (settings.model) {
-      this.modelSelect.value = settings.model;
+  /** 加载指定 provider 的配置到表单字段 */
+  loadProviderFields(provider) {
+    const providerConfig = this.settings?.providers?.[provider] || {};
+
+    this.apikeyInput.value = providerConfig.apiKey || '';
+    this.ollamaUrlInput.value = providerConfig.ollamaUrl || 'http://localhost:11434';
+    this.customBaseUrlInput.value = providerConfig.baseUrl || '';
+    this.customModelInput.value = providerConfig.customModel || '';
+
+    // 设置模型下拉框（非 custom 模式）
+    if (providerConfig.model && provider !== 'custom') {
+      this.modelSelect.value = providerConfig.model;
     }
   }
 
@@ -105,25 +112,72 @@ class SettingsPage {
     } else {
       this.modelSelect.parentElement.style.display = 'none';
     }
+
+    // 切换后加载该 provider 保存的配置到表单字段
+    this.loadProviderFields(provider);
   }
 
   async save() {
-    const settings = {
-      provider: this.providerSelect.value,
-      apiKey: this.apikeyInput.value.trim(),
-      model: this.modelSelect.value,
-      ollamaUrl: this.ollamaUrlInput.value.trim(),
-      customEndpoint: this.customEndpointInput.value.trim(),
-      customModel: this.customModelInput.value.trim()
-    };
+    const provider = this.providerSelect.value;
+
+    // 隐藏上次的错误提示
+    const errorEl = document.getElementById('connection-error');
+    errorEl.classList.remove('show');
+    errorEl.textContent = '';
+
+    // 先获取完整 settings（包含所有 provider 的独立配置）
+    const settings = await window.api.getSettings();
+
+    // 只更新当前 provider 的配置
+    settings.provider = provider;
+    if (!settings.providers) {
+      settings.providers = {};
+    }
+
+    if (provider === 'custom') {
+      // custom 的模型名来自自定义输入框
+      settings.providers[provider] = {
+        apiKey: this.apikeyInput.value.trim(),
+        model: this.customModelInput.value.trim(),
+        ollamaUrl: this.ollamaUrlInput.value.trim(),
+        baseUrl: this.customBaseUrlInput.value.trim(),
+        customModel: this.customModelInput.value.trim()
+      };
+    } else {
+      settings.providers[provider] = {
+        apiKey: this.apikeyInput.value.trim(),
+        model: this.modelSelect.value,
+        ollamaUrl: this.ollamaUrlInput.value.trim(),
+        baseUrl: this.customBaseUrlInput.value.trim(),
+        customModel: ''
+      };
+    }
 
     await window.api.saveSettings(settings);
 
-    // 显示保存成功，然后自动关闭窗口
-    this.saveSuccess.classList.add('show');
-    setTimeout(() => {
-      window.close();
-    }, 800);
+    // 更新缓存，让下次切换 provider 时能看到最新值
+    this.settings = settings;
+
+    // 测试连通性
+    this.btnSave.textContent = '⏳ 测试连接中...';
+    this.btnSave.classList.add('loading');
+    const result = await window.api.testLLMConnection(settings);
+
+    if (result.success) {
+      // 连接成功 → 显示保存成功并关闭
+      this.btnSave.textContent = '保存设置';
+      this.btnSave.classList.remove('loading');
+      this.saveSuccess.classList.add('show');
+      setTimeout(() => {
+        window.close();
+      }, 800);
+    } else {
+      // 连接失败 → 显示红色错误提示，不关闭
+      this.btnSave.textContent = '保存设置';
+      this.btnSave.classList.remove('loading');
+      errorEl.textContent = `⚠️ 大模型测试连接失败，请核对后重试!`;
+      errorEl.classList.add('show');
+    }
   }
 }
 

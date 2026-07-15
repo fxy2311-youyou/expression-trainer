@@ -1,8 +1,22 @@
 {
   "provider": "deepseek",
-  "apiKey": "your-api-key-here",
-  "model": "deepseek-chat",
-  "ollamaUrl": "http://localhost:11434",
-  "customEndpoint": "",
-  "customModel": ""
+  "providers": {
+    "openai": {
+      "apiKey": "",
+      "model": "gpt-4o-mini"
+    },
+    "deepseek": {
+      "apiKey": "your-api-key-here",
+      "model": "deepseek-chat"
+    },
+    "ollama": {
+      "ollamaUrl": "http://localhost:11434",
+      "model": "qwen2.5:7b"
+    },
+    "custom": {
+      "apiKey": "",
+      "baseUrl": "https://api.example.com/v1",
+      "model": ""
+    }
+  }
 }

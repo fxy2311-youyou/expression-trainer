@@ -3,6 +3,7 @@ models/*.onnx
 models/sherpa-onnx-*/
 dist/
 .DS_Store
+.idea/
 
 demo-*.html
 prompt-playground.html

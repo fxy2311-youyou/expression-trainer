@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { initASR, feedAudio, stopRecognition } = require('./lib/asr');
 const { loadLexicon, analyzeText } = require('./lib/lexicon');
-const { sendFeedback, sendReport } = require('./lib/ai-feedback');
+const { sendFeedback, sendReport, testConnection } = require('./lib/ai-feedback');
 
 let mainWindow;
 let settingsWindow;
@@ -27,6 +27,14 @@ function saveCustomPrompt(data) {
   fs.writeFileSync(getCustomPromptPath(), JSON.stringify(data, null, 2));
 }
 
+// 各 Provider 的默认配置
+const DEFAULT_PROVIDER_CONFIGS = {
+  openai: { apiKey: '', model: 'gpt-4o-mini' },
+  deepseek: { apiKey: '', model: 'deepseek-chat' },
+  ollama: { ollamaUrl: 'http://localhost:11434', model: 'qwen2.5:7b' },
+  custom: { apiKey: '', baseUrl: '', model: '' }
+};
+
 // 设置文件路径
 function getSettingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
@@ -35,21 +43,53 @@ function getSettingsPath() {
 function loadSettings() {
   const settingsPath = getSettingsPath();
   if (fs.existsSync(settingsPath)) {
-    return JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    const raw = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    // 兼容旧版扁平结构 → 迁移到 per-provider 结构
+    if (!raw.providers) {
+      const migrated = {
+        provider: raw.provider || 'deepseek',
+        providers: {
+          openai: { ...DEFAULT_PROVIDER_CONFIGS.openai },
+          deepseek: { ...DEFAULT_PROVIDER_CONFIGS.deepseek },
+          ollama: { ...DEFAULT_PROVIDER_CONFIGS.ollama },
+          custom: { ...DEFAULT_PROVIDER_CONFIGS.custom }
+        }
+      };
+      // 将旧字段迁移到对应 provider
+      const p = migrated.provider;
+      if (raw.apiKey) migrated.providers[p].apiKey = raw.apiKey;
+      if (raw.model) migrated.providers[p].model = raw.model;
+      if (raw.ollamaUrl) migrated.providers.ollama.ollamaUrl = raw.ollamaUrl;
+      if (raw.customEndpoint) migrated.providers.custom.baseUrl = raw.customEndpoint;
+      if (raw.customModel) migrated.providers.custom.model = raw.customModel;
+      saveSettings(migrated);
+      return migrated;
+    }
+    // 确保每个 provider 都有完整的默认字段
+    for (const key of Object.keys(DEFAULT_PROVIDER_CONFIGS)) {
+      if (!raw.providers[key]) {
+        raw.providers[key] = { ...DEFAULT_PROVIDER_CONFIGS[key] };
+      } else {
+        raw.providers[key] = { ...DEFAULT_PROVIDER_CONFIGS[key], ...raw.providers[key] };
+      }
+    }
+    return raw;
   }
   return {
     provider: 'deepseek',
-    apiKey: '',
-    model: 'deepseek-chat',
-    ollamaUrl: 'http://localhost:11434',
-    customEndpoint: '',
-    customModel: ''
+    providers: JSON.parse(JSON.stringify(DEFAULT_PROVIDER_CONFIGS))
   };
 }
 
 function saveSettings(settings) {
   const settingsPath = getSettingsPath();
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+}
+
+/** 获取当前选中 provider 的配置 */
+function getCurrentProviderSettings(settings) {
+  const config = settings.providers[settings.provider];
+  return config || DEFAULT_PROVIDER_CONFIGS[settings.provider] || {};
 }
 
 function createMainWindow() {
@@ -208,6 +248,12 @@ ipcMain.handle('stop-asr', () => {
   return { success: true, finalText };
 });
 
+// LLM 连通性测试
+ipcMain.handle('test-llm-connection', async (event, settings) => {
+  const providerConfig = getCurrentProviderSettings(settings);
+  return await testConnection({ ...settings, ...providerConfig });
+});
+
 // 词库分析
 ipcMain.handle('analyze-text', (event, text) => {
   return analyzeText(text);
@@ -232,9 +278,10 @@ ipcMain.handle('save-file', async (event, content, filename) => {
 // AI反馈（传入customPrompt）
 ipcMain.handle('get-realtime-feedback', async (event, text) => {
   const settings = loadSettings();
+  const providerConfig = getCurrentProviderSettings(settings);
   const customPrompt = loadCustomPrompt();
   try {
-    const feedback = await sendFeedback(text, settings, customPrompt);
+    const feedback = await sendFeedback(text, { ...settings, ...providerConfig }, customPrompt);
     return { success: true, feedback };
   } catch (error) {
     return { success: false, error: error.message };
@@ -243,9 +290,10 @@ ipcMain.handle('get-realtime-feedback', async (event, text) => {
 
 ipcMain.handle('get-final-report', async (event, { fullText, stats }) => {
   const settings = loadSettings();
+  const providerConfig = getCurrentProviderSettings(settings);
   const customPrompt = loadCustomPrompt();
   try {
-    const report = await sendReport(fullText, stats, settings, customPrompt);
+    const report = await sendReport(fullText, stats, { ...settings, ...providerConfig }, customPrompt);
     return { success: true, report };
   } catch (error) {
     return { success: false, error: error.message };
