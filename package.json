@@ -1,5 +1,6 @@
 {
   "name": "expression-trainer",
+  "productName": "宇宙无敌表达训练",
   "version": "1.0.0",
   "description": "宇宙无敌表达训练系统 - 本地桌面版",
   "main": "main.js",
