@@ -1,9 +1,12 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { initASR, feedAudio, stopRecognition } = require('./lib/asr');
 const { loadLexicon, analyzeText } = require('./lib/lexicon');
 const { sendFeedback, sendReport, testConnection } = require('./lib/ai-feedback');
+
+// 覆盖应用显示名称（菜单栏、Dock、任务栏、窗口标题）
+app.setName('宇宙无敌表达训练');
 
 let mainWindow;
 let settingsWindow;
@@ -97,6 +100,7 @@ function createMainWindow() {
     width: 1200,
     height: 800,
     backgroundColor: '#000000',
+    title: '宇宙无敌表达训练',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -170,6 +174,36 @@ function createSettingsWindow() {
 
 // App lifecycle
 app.whenReady().then(() => {
+  // macOS 需要显式创建应用菜单，否则菜单栏显示默认的 "Electron"
+  // Windows/Linux 上此菜单同样适用，macOS 专属角色（hide/hideOthers）会自动生效
+  const appMenuTemplate = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(appMenuTemplate));
+
   // 加载词库
   loadLexicon();
 
