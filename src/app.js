@@ -397,8 +397,8 @@ class ExpressionTrainer {
   copyOriginalText() {
     if (!this.fullText.trim()) return;
     navigator.clipboard.writeText(this.fullText).then(() => {
-      this.btnCopyText.querySelector('.btn-label').textContent = '✓ 已复制';
-      setTimeout(() => { this.btnCopyText.querySelector('.btn-label').textContent = '复制原文'; }, 1500);
+      this.btnCopyText.textContent = '✓ 已复制';
+      setTimeout(() => { this.btnCopyText.textContent = '📋 复制'; }, 1500);
     });
   }
 
@@ -413,8 +413,8 @@ class ExpressionTrainer {
     try {
       const result = await window.api.saveFile(markdown, filename);
       if (result.success) {
-        this.btnSaveText.querySelector('.btn-label').textContent = '✓ 已保存';
-        setTimeout(() => { this.btnSaveText.querySelector('.btn-label').textContent = '保存原文'; }, 2000);
+        this.btnSaveText.textContent = '✓ 已保存';
+        setTimeout(() => { this.btnSaveText.textContent = '💾 保存'; }, 2000);
       }
     } catch (e) {
       alert('保存失败: ' + e.message);
