@@ -100,7 +100,7 @@ class SettingsPage {
     }
 
     // 填充模型列表
-    this.modelSelect.innerHTML = '';
+    this.modelSelect.replaceChildren();
     if (config.models.length > 0) {
       config.models.forEach(m => {
         const opt = document.createElement('option');

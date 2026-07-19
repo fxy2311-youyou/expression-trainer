@@ -58,7 +58,8 @@ class ExpressionTrainer {
     document.getElementById('btn-prompt-editor').addEventListener('click', () => window.api.openPromptEditor());
     this.btnCloseReport.addEventListener('click', () => this.reportModal.classList.add('hidden'));
     this.btnCopyReport.addEventListener('click', () => {
-      const reportText = this.reportBody.innerText;
+      const reportContent = this.reportBody.querySelector('.report-content');
+      const reportText = reportContent ? reportContent.innerText : this.reportBody.innerText;
       navigator.clipboard.writeText(reportText).then(() => {
         this.btnCopyReport.textContent = '✅ 已复制';
         setTimeout(() => { this.btnCopyReport.textContent = '📋 复制全文'; }, 2000);
@@ -106,7 +107,7 @@ class ExpressionTrainer {
     this.fullText = '';
     this.sentences = [];
     this.resetStats();
-    this.subtitleContainer.innerHTML = '';
+    this.subtitleContainer.replaceChildren();
 
     // UI
     this.btnStart.classList.add('hidden');
@@ -194,7 +195,7 @@ class ExpressionTrainer {
       // 新行
       const line = document.createElement('div');
       line.className = 'subtitle-line';
-      line.innerHTML = this.highlightText(currentText);
+      line.appendChild(this.highlightText(currentText));
       this.subtitleContainer.appendChild(line);
     } else {
       let interim = this.subtitleContainer.querySelector('.interim-line');
@@ -211,16 +212,45 @@ class ExpressionTrainer {
   }
 
   highlightText(text) {
-    let result = text;
     const vagueWords = ['开心','难过','害怕','生气','不舒服','很好','很多','很快','很大','很小','好看','不好','喜欢','讨厌','觉得','想想'];
-    vagueWords.forEach(w => {
-      result = result.replace(new RegExp(w, 'g'), `<span class="vague">${w}</span>`);
-    });
-    const fillerPatterns = /(嗯|啊|呃|额|那个|就是|然后|这个|对吧|是吧|反正|基本上)/g;
-    result = result.replace(fillerPatterns, '<span class="filler">$1</span>');
-    const hedgePatterns = /(可能|也许|大概|应该|我觉得|好像|似乎|或许|不一定|差不多|感觉)/g;
-    result = result.replace(hedgePatterns, '<span class="hedge">$1</span>');
-    return result;
+    const fillerWords = ['嗯','啊','呃','额','那个','就是','然后','这个','对吧','是吧','反正','基本上'];
+    const hedgeWords = ['可能','也许','大概','应该','我觉得','好像','似乎','或许','不一定','差不多','感觉'];
+    const patterns = [
+      ...vagueWords.map(word => ({ word, className: 'vague', priority: 0 })),
+      ...fillerWords.map(word => ({ word, className: 'filler', priority: 1 })),
+      ...hedgeWords.map(word => ({ word, className: 'hedge', priority: 2 }))
+    ].sort((a, b) => b.word.length - a.word.length || a.priority - b.priority);
+
+    const fragment = document.createDocumentFragment();
+    const source = String(text ?? '');
+    let cursor = 0;
+    let plainStart = 0;
+
+    while (cursor < source.length) {
+      const matched = patterns.find(item => source.startsWith(item.word, cursor));
+      if (!matched) {
+        cursor += 1;
+        continue;
+      }
+
+      if (cursor > plainStart) {
+        fragment.appendChild(document.createTextNode(source.slice(plainStart, cursor)));
+      }
+
+      const span = document.createElement('span');
+      span.className = matched.className;
+      span.textContent = matched.word;
+      fragment.appendChild(span);
+
+      cursor += matched.word.length;
+      plainStart = cursor;
+    }
+
+    if (plainStart < source.length) {
+      fragment.appendChild(document.createTextNode(source.slice(plainStart)));
+    }
+
+    return fragment;
   }
 
   // ===== 分析 =====
@@ -307,7 +337,10 @@ class ExpressionTrainer {
   // ===== 报告 =====
 
   async generateReport() {
-    this.reportBody.innerHTML = '<p style="text-align:center;color:#666;padding:40px;">正在生成报告...</p>';
+    const loading = document.createElement('p');
+    loading.textContent = '正在生成报告...';
+    loading.style.cssText = 'text-align:center;color:#666;padding:40px;';
+    this.reportBody.replaceChildren(loading);
     this.reportModal.classList.remove('hidden');
 
     const result = await window.api.getFinalReport({
@@ -319,31 +352,152 @@ class ExpressionTrainer {
       this.lastReport = result.report;
       this.renderReport(result.report);
     } else {
-      this.reportBody.innerHTML = `<p style="color:#ff6b6b;">生成失败: ${result.error}</p>`;
+      const error = document.createElement('p');
+      error.style.color = '#ff6b6b';
+      error.textContent = `生成失败: ${result.error}`;
+      this.reportBody.replaceChildren(error);
     }
   }
 
   renderReport(report) {
-    let html = report
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-      .replace(/\|(.+)\|/g, (match) => {
-        // 简单表格支持
-        return match;
-      })
-      .replace(/\n/g, '<br>');
+    const actions = document.createElement('div');
+    actions.style.cssText = 'text-align:right;margin-bottom:12px;';
 
-    this.reportBody.innerHTML = `
-      <div style="text-align:right;margin-bottom:12px;">
-        <button id="btn-save-report" style="background:#E5007E;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;">💾 保存为 Markdown</button>
-      </div>
-      ${html}
-    `;
+    const saveButton = document.createElement('button');
+    saveButton.id = 'btn-save-report';
+    saveButton.type = 'button';
+    saveButton.textContent = '💾 保存为 Markdown';
+    saveButton.style.cssText = 'background:#E5007E;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;cursor:pointer;';
+    saveButton.addEventListener('click', () => this.saveReport());
+    actions.appendChild(saveButton);
 
-    document.getElementById('btn-save-report').addEventListener('click', () => this.saveReport());
+    const content = document.createElement('div');
+    content.className = 'report-content';
+    content.appendChild(this.renderMarkdown(report));
+
+    this.reportBody.replaceChildren(actions, content);
+  }
+
+  renderMarkdown(markdown) {
+    const fragment = document.createDocumentFragment();
+    const lines = String(markdown ?? '').replace(/\r\n?/g, '\n').split('\n');
+    const isTableRow = line => /^\s*\|.*\|\s*$/.test(line);
+    const getTableCells = line => line.trim().replace(/^\||\|$/g, '').split('|').map(cell => cell.trim());
+    const isTableSeparator = line => {
+      if (!isTableRow(line)) return false;
+      const cells = getTableCells(line);
+      return cells.length > 0 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
+    };
+    let index = 0;
+
+    while (index < lines.length) {
+      const line = lines[index];
+
+      if (!line.trim()) {
+        fragment.appendChild(document.createElement('br'));
+        index += 1;
+        continue;
+      }
+
+      const heading = line.match(/^(#{1,3})\s+(.+)$/);
+      if (heading) {
+        const element = document.createElement(`h${heading[1].length}`);
+        this.appendInlineMarkdown(element, heading[2]);
+        fragment.appendChild(element);
+        index += 1;
+        continue;
+      }
+
+      if (/^\s*---+\s*$/.test(line)) {
+        fragment.appendChild(document.createElement('hr'));
+        index += 1;
+        continue;
+      }
+
+      if (isTableRow(line) && isTableSeparator(lines[index + 1] || '')) {
+        const table = document.createElement('table');
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        getTableCells(line).forEach(cellText => {
+          const cell = document.createElement('th');
+          this.appendInlineMarkdown(cell, cellText);
+          headerRow.appendChild(cell);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        index += 2;
+        while (index < lines.length && isTableRow(lines[index]) && !isTableSeparator(lines[index])) {
+          const row = document.createElement('tr');
+          getTableCells(lines[index]).forEach(cellText => {
+            const cell = document.createElement('td');
+            this.appendInlineMarkdown(cell, cellText);
+            row.appendChild(cell);
+          });
+          tbody.appendChild(row);
+          index += 1;
+        }
+        table.appendChild(tbody);
+        fragment.appendChild(table);
+        continue;
+      }
+
+      if (/^>/.test(line)) {
+        const quote = document.createElement('blockquote');
+        let firstLine = true;
+        while (index < lines.length && /^>/.test(lines[index])) {
+          if (!firstLine) quote.appendChild(document.createElement('br'));
+          this.appendInlineMarkdown(quote, lines[index].replace(/^>\s?/, ''));
+          firstLine = false;
+          index += 1;
+        }
+        fragment.appendChild(quote);
+        continue;
+      }
+
+      if (/^\s*[-*]\s+/.test(line)) {
+        const list = document.createElement('ul');
+        while (index < lines.length && /^\s*[-*]\s+/.test(lines[index])) {
+          const item = document.createElement('li');
+          this.appendInlineMarkdown(item, lines[index].replace(/^\s*[-*]\s+/, ''));
+          list.appendChild(item);
+          index += 1;
+        }
+        fragment.appendChild(list);
+        continue;
+      }
+
+      const paragraph = document.createElement('p');
+      this.appendInlineMarkdown(paragraph, line);
+      fragment.appendChild(paragraph);
+      index += 1;
+    }
+
+    return fragment;
+  }
+
+  appendInlineMarkdown(container, text) {
+    const source = String(text ?? '');
+    const tokenPattern = /(\*\*[^*\n]+?\*\*|`[^`\n]+?`)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = tokenPattern.exec(source)) !== null) {
+      if (match.index > lastIndex) {
+        container.appendChild(document.createTextNode(source.slice(lastIndex, match.index)));
+      }
+
+      const isStrong = match[0].startsWith('**');
+      const element = document.createElement(isStrong ? 'strong' : 'code');
+      element.textContent = isStrong ? match[0].slice(2, -2) : match[0].slice(1, -1);
+      container.appendChild(element);
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < source.length) {
+      container.appendChild(document.createTextNode(source.slice(lastIndex)));
+    }
   }
 
   async saveReport() {
@@ -381,7 +535,7 @@ class ExpressionTrainer {
   resetStats() {
     this.stats = { fillers: 0, hedges: 0, vagueWords: 0, totalWords: 0, duration: 0 };
     this.updateStatsDisplay();
-    this.feedbackContent.innerHTML = '';
+    this.feedbackContent.replaceChildren();
   }
 
   showError(msg) {
@@ -425,8 +579,11 @@ class ExpressionTrainer {
     this.fullText = '';
     this.sentences = [];
     this.lastReport = '';
-    this.subtitleContainer.innerHTML = '<div class="subtitle-line hint">点击下方按钮开始说话</div>';
-    this.feedbackContent.innerHTML = '';
+    const hint = document.createElement('div');
+    hint.className = 'subtitle-line hint';
+    hint.textContent = '点击下方按钮开始说话';
+    this.subtitleContainer.replaceChildren(hint);
+    this.feedbackContent.replaceChildren();
     this.resetStats();
     this.timer.textContent = '00:00';
     this.timer.classList.remove('active');
@@ -452,7 +609,7 @@ class ExpressionTrainer {
     this.pasteModal.classList.add('hidden');
 
     // 把文本显示到字幕区（高亮标记）
-    this.subtitleContainer.innerHTML = '';
+    this.subtitleContainer.replaceChildren();
     this.fullText = text;
     this.resetStats();
 
@@ -463,7 +620,7 @@ class ExpressionTrainer {
     for (const sentence of sentences) {
       const line = document.createElement('div');
       line.className = 'subtitle-line';
-      line.innerHTML = this.highlightText(sentence.trim());
+      line.appendChild(this.highlightText(sentence.trim()));
       this.subtitleContainer.appendChild(line);
 
       // 词库分析
